@@ -1,0 +1,84 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #111827;
+  color: white;
+}
+
+.join-container {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.join-box {
+  width: 380px;
+  padding: 30px;
+  background: #1f2937;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.join-box h1 {
+  font-size: 24px;
+  text-align: center;
+}
+
+.join-box input {
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 16px;
+}
+
+.join-box button {
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  background: #2563eb;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.app-layout {
+  display: flex;
+  height: 100vh;
+}
+
+.sidebar {
+  width: 260px;
+  padding: 20px;
+  background: #1f2937;
+  border-right: 1px solid #374151;
+}
+
+.sidebar h2 {
+  margin-bottom: 6px;
+}
+
+.user-list {
+  margin-top: 30px;
+}
+
+.user-item {
+  padding: 10px;
+  margin-bottom: 8px;
+  background: #374151;
+  border-radius: 8px;
+}
+
+.main-editor {
+  flex: 1;
+}
+
+.editor-container {
+  height: 100%;
+}
