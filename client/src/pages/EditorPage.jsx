@@ -3,6 +3,7 @@ import Editor from "../components/Editor";
 import RoomJoin from "../components/RoomJoin";
 import UserList from "../components/UserList";
 import { socket } from "../socket/socket";
+import Terminal from "../components/Terminal";
 
 function EditorPage() {
   const [joined, setJoined] = useState(false);
@@ -87,7 +88,11 @@ function EditorPage() {
       </div>
 
       <div className="main-editor">
-        <Editor roomId={roomId} username={username} />
+        <div className="editor-section">
+          <Editor roomId={roomId} username={username} />
+        </div>
+
+        <Terminal roomId={roomId} />
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import * as Y from "yjs";
+import { spawn } from "child_process";
 
 const roomUsers = new Map();
 const roomDocs = new Map();
@@ -117,6 +118,65 @@ export default function setupEditorSocket(io) {
   //     position
   //   });
   // });
+
+  socket.on("run-code", ({ roomId }) => {
+  if (!roomId || !roomDocs.has(roomId)) {
+    socket.emit("terminal-output", {
+      output: "No code found for this room.\r\n"
+    });
+    socket.emit("terminal-done");
+    return;
+  }
+
+  const ydoc = roomDocs.get(roomId);
+  const yText = ydoc.getText("monaco");
+  const code = yText.toString();
+
+  if (!code.trim()) {
+    socket.emit("terminal-output", {
+      output: "Editor is empty.\r\n"
+    });
+    socket.emit("terminal-done");
+    return;
+  }
+
+  socket.emit("terminal-output", {
+    output: "Executing JavaScript...\r\n"
+  });
+
+  const child = spawn("node", ["-e", code], {
+    shell: false,
+    timeout: 5000
+  });
+
+  child.stdout.on("data", (data) => {
+    socket.emit("terminal-output", {
+      output: data.toString().replace(/\n/g, "\r\n")
+    });
+  });
+
+  child.stderr.on("data", (data) => {
+    socket.emit("terminal-output", {
+      output: data.toString().replace(/\n/g, "\r\n")
+    });
+  });
+
+  child.on("close", (exitCode) => {
+    socket.emit("terminal-output", {
+      output: `\r\nProcess exited with code ${exitCode}\r\n`
+    });
+
+    socket.emit("terminal-done");
+  });
+
+  child.on("error", (error) => {
+    socket.emit("terminal-output", {
+      output: `Execution error: ${error.message}\r\n`
+    });
+
+    socket.emit("terminal-done");
+  });
+});
 
     socket.on("disconnect", () => {
       

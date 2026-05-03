@@ -10,6 +10,8 @@
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "collaborative-code-editor": "file:..",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

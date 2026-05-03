@@ -97,3 +97,28 @@ body {
   border-radius: 4px;
   font-size: 12px;
 } */
+
+.main-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-width: 0;
+}
+
+.editor-section {
+  flex: 1;
+  min-height: 0;
+}
+
+.editor-container {
+  height: 100%;
+}
+
+.terminal-container {
+  height: 220px;
+  width: 100%;
+  background: #0f172a;
+  border-top: 1px solid #374151;
+  padding: 8px;
+}
