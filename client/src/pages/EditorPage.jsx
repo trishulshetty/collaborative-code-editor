@@ -8,60 +8,68 @@ function EditorPage() {
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState("");
   const [username, setUsername] = useState("");
-  const [code, setCode] = useState("// Start coding together...\n");
   const [users, setUsers] = useState([]);
+  const [connectionStatus, setConnectionStatus] = useState("Connecting...");
 
   function handleJoin({ roomId, username }) {
-    setRoomId(roomId);
-    setUsername(username);
-    setJoined(true);
-
-    if (!socket.connected) {
-      socket.connect();
-    }
-
-    socket.emit("join-room", {
+    const joinPayload = {
       roomId,
       username
-    });
-  }
+    };
 
-  function handleCodeChange(newCode) {
-    setCode(newCode);
+    socket.emit("join-room", joinPayload, (response) => {
+      console.log("Join response:", response);
 
-    socket.emit("code-change", {
-      roomId,
-      code: newCode
+      if (!response || !response.success) {
+        alert(response?.message || "Failed to join room");
+        return;
+      }
+
+      setRoomId(roomId);
+      setUsername(username);
+      setUsers(response.users || []);
+      setJoined(true);
     });
   }
 
   useEffect(() => {
-    socket.on("code-update", ({ code }) => {
-      setCode(code);
+    socket.on("connect", () => {
+      console.log("Connected to server:", socket.id);
+      setConnectionStatus("Connected");
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Disconnected from server");
+      setConnectionStatus("Disconnected");
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error("Connection error:", error.message);
+      setConnectionStatus("Connection Error");
     });
 
     socket.on("users-update", ({ users }) => {
+      console.log("Users update:", users);
       setUsers(users);
     });
 
-    socket.on("user-joined", ({ username }) => {
-      console.log(`${username} joined`);
-    });
-
-    socket.on("user-left", ({ username }) => {
-      console.log(`${username} left`);
-    });
-
     return () => {
-      socket.off("code-update");
+      socket.off("connect");
+      socket.off("disconnect");
+      socket.off("connect_error");
       socket.off("users-update");
-      socket.off("user-joined");
-      socket.off("user-left");
     };
   }, []);
 
   if (!joined) {
-    return <RoomJoin onJoin={handleJoin} />;
+    return (
+      <>
+        <div style={{ position: "fixed", top: 10, right: 10, color: "white" }}>
+          Socket: {connectionStatus}
+        </div>
+        <RoomJoin onJoin={handleJoin} />
+      </>
+    );
   }
 
   return (
@@ -73,11 +81,13 @@ function EditorPage() {
         <h2>You</h2>
         <p>{username}</p>
 
+        <p>Status: {connectionStatus}</p>
+
         <UserList users={users} />
       </div>
 
       <div className="main-editor">
-        <Editor code={code} onCodeChange={handleCodeChange} />
+        <Editor roomId={roomId} username={username} />
       </div>
     </div>
   );

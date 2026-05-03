@@ -1,17 +1,52 @@
+import * as Y from "yjs";
+
 const roomUsers = new Map();
-const roomCode = new Map();
+const roomDocs = new Map();
 
 function getUsersInRoom(roomId) {
   if (!roomUsers.has(roomId)) return [];
   return Array.from(roomUsers.get(roomId).values());
 }
 
+// function getRoomDoc(roomId) {
+//   if (!roomDocs.has(roomId)) {
+//     const ydoc = new Y.Doc();
+//     const yText = ydoc.getText("monaco");
+
+//     yText.insert(0, "// Start coding together...\n");
+
+//     roomDocs.set(roomId, ydoc);
+//   }
+
+//   return roomDocs.get(roomId);
+// }
+
+function getRoomDoc(roomId) {
+  if (!roomDocs.has(roomId)) {
+    const ydoc = new Y.Doc();
+    ydoc.getText("monaco");
+    roomDocs.set(roomId, ydoc);
+  }
+
+  return roomDocs.get(roomId);
+}
+
 export default function setupEditorSocket(io) {
   io.on("connection", (socket) => {
-    console.log("User connected:", socket.id);
+    console.log("Socket connected:", socket.id);
 
-    socket.on("join-room", ({ roomId, username }) => {
-      if (!roomId || !username) return;
+    socket.on("join-room", ({ roomId, username }, callback) => {
+      console.log("join-room received:", { roomId, username });
+
+      if (!roomId || !username) {
+        if (callback) {
+          callback({
+            success: false,
+            message: "Room ID and username are required"
+          });
+        }
+        return;
+      }
 
       socket.join(roomId);
 
@@ -27,55 +62,89 @@ export default function setupEditorSocket(io) {
         username
       });
 
-      if (!roomCode.has(roomId)) {
-        roomCode.set(roomId, "// Start coding together...\n");
-      }
+      getRoomDoc(roomId);
 
-      socket.emit("code-update", {
-        code: roomCode.get(roomId)
-      });
+      const users = getUsersInRoom(roomId);
 
       io.to(roomId).emit("users-update", {
-        users: getUsersInRoom(roomId)
+        users
       });
 
-      socket.to(roomId).emit("user-joined", {
+      if (callback) {
+        callback({
+          success: true,
+          users
+        });
+      }
+
+      console.log(`Room ${roomId} users:`, users);
+    });
+
+    socket.on("yjs-sync-request", ({ roomId }) => {
+      if (!roomId) return;
+
+      const ydoc = getRoomDoc(roomId);
+      const state = Y.encodeStateAsUpdate(ydoc);
+
+      socket.emit("yjs-sync", {
+        update: Array.from(state)
+      });
+
+      console.log("Yjs sync sent for room:", roomId);
+    });
+
+    socket.on("yjs-update", ({ roomId, update }) => {
+      if (!roomId || !update) return;
+
+      const ydoc = getRoomDoc(roomId);
+      const binaryUpdate = Uint8Array.from(update);
+
+      Y.applyUpdate(ydoc, binaryUpdate);
+
+      socket.to(roomId).emit("yjs-update", {
+        update: Array.from(binaryUpdate)
+      });
+
+      console.log("Yjs update received for room:", roomId);
+    });
+
+  //   socket.on("cursor-change", ({ roomId, username, position }) => {
+  //   if (!roomId || !position) return;
+
+  //   socket.to(roomId).emit("remote-cursor-change", {
+  //     socketId: socket.id,
+  //     username,
+  //     position
+  //   });
+  // });
+
+    socket.on("disconnect", () => {
+      
+      console.log("Socket disconnected:", socket.id);
+
+      const { roomId, username } = socket.data;
+
+      if (!roomId || !roomUsers.has(roomId)) return;
+
+      roomUsers.get(roomId).delete(socket.id);
+
+      const users = getUsersInRoom(roomId);
+
+      io.to(roomId).emit("users-update", {
+        users
+      });
+
+      socket.to(roomId).emit("user-left", {
         username
       });
 
-      console.log(`${username} joined room ${roomId}`);
-    });
-
-    socket.on("code-change", ({ roomId, code }) => {
-      if (!roomId) return;
-
-      roomCode.set(roomId, code);
-
-      socket.to(roomId).emit("code-update", {
-        code
-      });
-    });
-
-    socket.on("disconnect", () => {
-      const { roomId, username } = socket.data;
-
-      if (roomId && roomUsers.has(roomId)) {
-        roomUsers.get(roomId).delete(socket.id);
-
-        io.to(roomId).emit("users-update", {
-          users: getUsersInRoom(roomId)
-        });
-
-        socket.to(roomId).emit("user-left", {
-          username
-        });
-
-        if (roomUsers.get(roomId).size === 0) {
-          roomUsers.delete(roomId);
-        }
+      if (roomUsers.get(roomId).size === 0) {
+        roomUsers.delete(roomId);
       }
 
-      console.log("User disconnected:", socket.id);
+      console.log(`Room ${roomId} users after disconnect:`, users);
     });
+
+    
   });
 }
