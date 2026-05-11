@@ -10,6 +10,10 @@ app.use(cors({
 
 app.use(express.json());
 
+app.get("/", (req, res) => {
+  res.send("CodeSync backend is running");
+});
+
 app.use("/api/health", healthRoutes);
 
 export default app;
