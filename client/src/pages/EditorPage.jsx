@@ -89,7 +89,7 @@ function EditorPage() {
 
       <div className="main-editor">
         <div className="editor-section">
-          <Editor roomId={roomId} username={username} />
+          <Editor roomId={roomId} username={username} users={users} />
         </div>
 
         <Terminal roomId={roomId} />

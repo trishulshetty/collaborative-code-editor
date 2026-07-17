@@ -1,12 +1,16 @@
 {
   "name": "collaborative-code-editor",
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
     "client": "npm run dev --prefix client",
     "server": "npm run dev --prefix server",
     "dev": "concurrently \"npm run server\" \"npm run client\""
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "@types/node": "^26.1.1",
+    "concurrently": "^9.1.2",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2"
   }
 }

@@ -1,87 +1,74 @@
 import { useEffect, useRef, useState } from "react";
 import MonacoEditor from "@monaco-editor/react";
-import * as Y from "yjs";
-import { MonacoBinding } from "y-monaco";
-import { socket } from "../socket/socket";
+import { CRDT } from "../crdt/CRDT.js";
+import { SocketSync } from "../socket/SocketSync.js";
+import { MonacoAdapter } from "../editor/MonacoAdapter.js";
+import { socket } from "../socket/socket.js";
 
-function Editor({ roomId, username }) {
+function Editor({ roomId, username, users }) {
   const editorRef = useRef(null);
+  const monacoRef = useRef(null);
+  const adapterRef = useRef(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
 
-  function handleEditorDidMount(editor) {
+  function handleEditorDidMount(editor, monaco) {
     editorRef.current = editor;
+    monacoRef.current = monaco;
     setIsEditorReady(true);
   }
 
+  // Update remote cursors and prune disconnected users' styling when the active users list changes
   useEffect(() => {
-    if (!roomId || !username || !isEditorReady || !editorRef.current) return;
-
-    const ydoc = new Y.Doc();
-    const yText = ydoc.getText("monaco");
-    const model = editorRef.current.getModel();
-
-    const binding = new MonacoBinding(
-      yText,
-      model,
-      new Set([editorRef.current])
-    );
-
-    function handleRemoteUpdate({ update }) {
-      if (!update) return;
-
-      const binaryUpdate = Uint8Array.from(update);
-      Y.applyUpdate(ydoc, binaryUpdate, "remote");
+    if (adapterRef.current && users) {
+      adapterRef.current.updateActiveUsers(users);
     }
+  }, [users]);
 
-    function handleLocalUpdate(update, origin) {
-      if (origin === "remote") return;
+  useEffect(() => {
+    if (!roomId || !username || !isEditorReady || !editorRef.current || !monacoRef.current) return;
 
-      socket.emit("yjs-update", {
-        roomId,
-        update: Array.from(update)
-      });
-    }
+    // Use socket.id as the clientId to ensure uniqueness. Fallback if not populated.
+    const clientId = socket.id || username || Math.random().toString(36).substring(2, 9);
+    console.log("Initializing Custom CRDT with clientId:", clientId);
 
-    socket.on("yjs-sync", handleRemoteUpdate);
-    socket.on("yjs-update", handleRemoteUpdate);
+    const crdt = new CRDT(clientId);
+    const sync = new SocketSync(socket, crdt, roomId, username);
+    const adapter = new MonacoAdapter(editorRef.current, monacoRef.current, crdt, sync);
 
-    ydoc.on("update", handleLocalUpdate);
+    adapterRef.current = adapter;
 
-    socket.emit("yjs-sync-request", {
-      roomId
-    });
+    // Trigger initial document synchronization request
+    socket.emit("sync-document", { roomId });
 
-    console.log("Yjs editor connected:", {
+    console.log("CRDT editor connected successfully:", {
       roomId,
-      username
+      username,
+      clientId,
     });
 
     return () => {
-      socket.off("yjs-sync", handleRemoteUpdate);
-      socket.off("yjs-update", handleRemoteUpdate);
-
-      ydoc.off("update", handleLocalUpdate);
-
-      binding.destroy();
-      ydoc.destroy();
+      console.log("Cleaning up CRDT editor adapter...");
+      adapter.destroy();
+      sync.destroy();
+      adapterRef.current = null;
     };
   }, [roomId, username, isEditorReady]);
 
   return (
     <div className="editor-container">
       <MonacoEditor
-      height="100%"
-      language="javascript"
-      theme="vs-dark"
-      defaultValue="// Start coding together...\n"
-      onMount={handleEditorDidMount}
-      options={{
-        fontSize: 16,
-        minimap: { enabled: false },
-        automaticLayout: true,
-        wordWrap: "on"
-      }}
-    />
+        height="100%"
+        language="javascript"
+        theme="vs-dark"
+        defaultValue="// Start coding together...\n"
+        onMount={handleEditorDidMount}
+        options={{
+          fontSize: 16,
+          minimap: { enabled: false },
+          automaticLayout: true,
+          wordWrap: "on",
+        }}
+      />
     </div>
   );
 }
